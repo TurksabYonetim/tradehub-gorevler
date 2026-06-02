@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Marketplace Kanban</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F5EFE5;
+    --text: #2C241A;
+    --muted: #7C6F58;
+    --border: #E5DBC9;
+    --shadow-card: 0 1px 0 rgba(60,40,20,0.04), 0 2px 6px rgba(60,40,20,0.04);
+    --shadow-col: 0 1px 0 rgba(60,40,20,0.03), 0 4px 16px rgba(60,40,20,0.04);
+  }
+  html, body { min-height: 100%; width: 100%; }
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.42  0 0 0 0 0.36  0 0 0 0 0.28  0 0 0 0.07 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    background-blend-mode: multiply;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { cursor: pointer; font-family: inherit; font-size: inherit; color: inherit; }
+  input { font-family: inherit; }
+
+  /* Header */
+  .kb-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(245,239,229,0.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  @media (min-width: 640px) { .kb-header { padding: 24px 24px 16px; } }
+  @media (min-width: 768px) { .kb-header { padding: 24px 40px 16px; } }
+
+  .kb-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .kb-title-wrap { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+  .kb-title {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: clamp(26px, 6vw, 38px);
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .kb-subtitle {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--muted);
+    display: none;
+  }
+  @media (min-width: 640px) { .kb-subtitle { display: inline; } }
+
+  .kb-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .kb-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: white;
+    border: 1px solid var(--border);
+  }
+  .kb-search input {
+    background: transparent;
+    border: none;
+    outline: none;
+    width: 96px;
+    font-size: 13px;
+    color: var(--text);
+  }
+  @media (min-width: 640px) { .kb-search input { width: 176px; } }
+
+  .kb-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: white;
+    border: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 500;
+    color: #5C5040;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+  .kb-btn:hover { background: #fafaf8; }
+  .kb-btn.primary {
+    background: #2C241A;
+    color: var(--bg);
+    border-color: #2C241A;
+    font-weight: 600;
+  }
+  .kb-btn-label { display: none; }
+  @media (min-width: 640px) { .kb-btn-label { display: inline; } }
+
+  .kb-meta-row {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    column-gap: 16px;
+    row-gap: 4px;
+    flex-wrap: wrap;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .kb-meta-row .sep { opacity: 0.5; }
+  .kb-meta-count { opacity: 0.6; }
+  .kb-help { margin-left: auto; opacity: 0.5; display: none; }
+  @media (min-width: 768px) { .kb-help { display: inline; } }
+
+  /* Board */
+  .kb-board {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+    gap: 16px;
+    padding: 20px 16px;
+    align-items: start;
+  }
+  @media (min-width: 640px) { .kb-board { gap: 20px; padding: 24px; } }
+  @media (min-width: 768px) { .kb-board { padding: 24px 40px; } }
+
+  .kb-col {
+    display: flex;
+    flex-direction: column;
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-col);
+    animation: kb-col-in 0.4s ease both;
+  }
+  .kb-col-tape {
+    position: absolute;
+    top: -12px;
+    left: 24px;
+    right: 24px;
+    height: 28px;
+    border-radius: 2px;
+    transform: rotate(-0.4deg);
+    box-shadow: 0 2px 6px rgba(60,40,20,0.18);
+    opacity: 0.9;
+  }
+  .kb-col-head { padding: 28px 20px 12px; position: relative; }
+  .kb-col-head-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .kb-col-title-btn {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    background: transparent;
+    border: none;
+    padding: 0;
+    text-align: left;
+    min-width: 0;
+    flex: 1;
+  }
+  .kb-col-title-btn:hover { opacity: 0.7; }
+  .kb-col-title {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 28px;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .kb-col-sub {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .kb-col-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  .kb-col-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    opacity: 0.7;
+    margin-right: 2px;
+  }
+  .kb-icon-btn {
+    background: transparent;
+    border: none;
+    padding: 4px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s;
+    display: inline-flex;
+  }
+  .kb-col:hover .kb-icon-btn { opacity: 0.5; }
+  .kb-icon-btn:hover { opacity: 1 !important; background: rgba(255,255,255,0.6); }
+  .kb-col-divider { height: 1px; margin-top: 12px; opacity: 0.18; }
+
+  .kb-cards {
+    padding: 0 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 60px;
+  }
+  .kb-card {
+    background: white;
+    padding: 14px 16px;
+    border-radius: 8px;
+    box-shadow: var(--shadow-card);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    position: relative;
+    transition: opacity 0.15s;
+  }
+  .kb-card:active { cursor: grabbing; }
+  .kb-card.dragging { opacity: 0.18; }
+  .kb-card-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    flex-shrink: 0;
+    min-width: 22px;
+    padding-top: 2px;
+    line-height: 1;
+  }
+  .kb-card-title {
+    flex: 1;
+    font-size: 13.5px;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+    color: #292524;
+  }
+  .kb-card-delete {
+    opacity: 0;
+    background: transparent;
+    border: none;
+    padding: 2px;
+    border-radius: 4px;
+    color: #78716c;
+    display: inline-flex;
+    transition: opacity 0.15s, background 0.15s;
+    flex-shrink: 0;
+    margin: -2px -4px 0 0;
+  }
+  .kb-card:hover .kb-card-delete { opacity: 0.5; }
+  .kb-card-delete:hover { opacity: 1 !important; background: #f5f5f4; }
+
+  .kb-drop-line {
+    height: 3px;
+    margin: 4px;
+    border-radius: 999px;
+    animation: kb-pulse 1.2s ease-in-out infinite;
+  }
+
+  .kb-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 0;
+    border-radius: 8px;
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 15px;
+    opacity: 0.5;
+  }
+
+  .kb-add-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px;
+    margin: 0 12px 12px;
+    border-radius: 8px;
+    background: transparent;
+    font-size: 12px;
+    font-weight: 500;
+    transition: background 0.15s;
+  }
+
+  .kb-inline-form {
+    background: white;
+    padding: 12px;
+    border-radius: 8px;
+  }
+  .kb-inline-form input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+  }
+  .kb-inline-hint {
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: #a8a29e;
+  }
+
+  .kb-add-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 180px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.4);
+    transition: background 0.15s, border-color 0.15s;
+    padding: 16px;
+  }
+  .kb-add-col:hover { filter: brightness(1.03); }
+  .kb-add-col-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+
+  /* Drag ghost */
+  .kb-ghost {
+    position: fixed;
+    pointer-events: none;
+    z-index: 1000;
+    transform: rotate(-2.5deg) scale(1.04);
+    filter: drop-shadow(0 14px 28px rgba(60,40,20,0.22)) drop-shadow(0 4px 8px rgba(60,40,20,0.12));
+  }
+
+  /* Toast */
+  .kb-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1100;
+    background: #2C241A;
+    color: var(--bg);
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.45;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: calc(100vw - 32px);
+    border: 1px solid rgba(245,239,229,0.1);
+    animation: kb-toast-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  }
+  .kb-toast button {
+    background: transparent;
+    border: none;
+    color: inherit;
+    opacity: 0.6;
+    padding: 2px;
+    display: inline-flex;
+  }
+
+  /* Modal */
+  .kb-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    background: rgba(44, 36, 26, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: kb-fadein 0.15s ease;
+  }
+  .kb-modal {
+    background: #FBF6EC;
+    border-radius: 14px;
+    padding: 22px 22px 18px;
+    max-width: 440px;
+    width: 100%;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    animation: kb-modal-in 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+  }
+  .kb-modal h3 {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+    margin-bottom: 6px;
+  }
+  .kb-modal p {
+    font-size: 13.5px;
+    font-weight: 500;
+    line-height: 1.5;
+    margin-bottom: 20px;
+  }
+  .kb-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .kb-modal-cancel {
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: white;
+    border: 1px solid var(--border);
+    font-size: 13px;
+    font-weight: 500;
+    color: #5C5040;
+  }
+  .kb-modal-confirm {
+    padding: 8px 18px;
+    border-radius: 8px;
+    background: #2C241A;
+    color: var(--bg);
+    border: none;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .kb-modal-confirm.danger { background: #A8324A; }
+
+  .kb-icon {
+    width: 13px;
+    height: 13px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+  }
+  .kb-icon-lg { width: 18px; height: 18px; }
+
+  @keyframes kb-pulse {
+    0%, 100% { opacity: 0.85; transform: scaleX(1); }
+    50% { opacity: 1; transform: scaleX(1.02); }
+  }
+  @keyframes kb-fadein {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes kb-col-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes kb-toast-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+  @keyframes kb-modal-in {
+    from { opacity: 0; transform: scale(0.94) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+</style>
+</head>
+<body>
+<header class="kb-header">
+  <div class="kb-header-row">
+    <div class="kb-title-wrap">
+      <h1 class="kb-title">Marketplace</h1>
+      <span class="kb-subtitle">· Roadmap Kanban</span>
+    </div>
+    <div class="kb-controls">
+      <div class="kb-search">
+        <svg class="kb-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="kb-search-input" placeholder="ara">
+      </div>
+      <button class="kb-btn" id="kb-import" title="JSON dosyasından içe aktar">
+        <svg class="kb-icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+        <span class="kb-btn-label">içe aktar</span>
+      </button>
+      <button class="kb-btn primary" id="kb-pdf" title="Görsel olarak PDF indir">
+        <svg class="kb-icon" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
+        <span class="kb-btn-label">PDF</span>
+      </button>
+      <button class="kb-btn" id="kb-json" title="JSON olarak yedekle">
+        <svg class="kb-icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+        <span class="kb-btn-label">JSON</span>
+      </button>
+      <button class="kb-btn" id="kb-reset" title="İlk haline döndür">
+        <svg class="kb-icon" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        <span class="kb-btn-label">sıfırla</span>
+      </button>
+    </div>
+  </div>
+  <div class="kb-meta-row" id="kb-meta-row"></div>
+</header>
+
+<main class="kb-board" id="kb-board"></main>
+
+<div id="kb-ghost-host"></div>
+<div id="kb-toast-host"></div>
+<div id="kb-modal-host"></div>
+
+<script>
+'use strict';
+
+/* === Constants === */
+const STORAGE_KEY = 'mp-kanban-html-v1';
+
+const PALETTES = [
+  { ink: '#B14A2E', soft: '#F2D9CC', paper: '#FBEFE6', tape: 'linear-gradient(180deg, #E8896E 0%, #D26F4F 100%)' },
+  { ink: '#A8324A', soft: '#EDD0D7', paper: '#FAEBEE', tape: 'linear-gradient(180deg, #D26B82 0%, #B6486A 100%)' },
+  { ink: '#2F4F75', soft: '#CFDAE8', paper: '#E8EEF5', tape: 'linear-gradient(180deg, #6E8BB3 0%, #4A6A93 100%)' },
+  { ink: '#4F6B33', soft: '#D4DEC2', paper: '#EDF1E1', tape: 'linear-gradient(180deg, #8FAD6E 0%, #6B8C4D 100%)' },
+  { ink: '#8C6914', soft: '#EFE0B8', paper: '#F7EFD3', tape: 'linear-gradient(180deg, #D4B055 0%, #B0883A 100%)' },
+  { ink: '#6B3D6E', soft: '#E0CDE3', paper: '#ECDDEE', tape: 'linear-gradient(180deg, #A88AAB 0%, #836287 100%)' },
+  { ink: '#2E6E6E', soft: '#C5DEDE', paper: '#DCECEC', tape: 'linear-gradient(180deg, #6FA8A8 0%, #468181 100%)' },
+  { ink: '#5C5040', soft: '#D8D2C5', paper: '#E8E2D6', tape: 'linear-gradient(180deg, #9C8E78 0%, #756857 100%)' },
+  { ink: '#1F4E3D', soft: '#C5DACE', paper: '#DCE8DF', tape: 'linear-gradient(180deg, #5E9079 0%, #38664F 100%)' },
+  { ink: '#9A4A6E', soft: '#EAD0DB', paper: '#F4E2EA', tape: 'linear-gradient(180deg, #C77FA0 0%, #A85B82 100%)' },
+];
+
+const INITIAL_BOARD = [
+  {
+    id: 'ahmet', title: 'Ahmet', subtitle: '', ...PALETTES[6],
+    cards: [
+      { id: 'ahmet-3',   num: 3,     title: 'Responsive · Adaptive Test' },
+      { id: 'ahmet-3-1', num: '3.1', title: 'PWA' },
+      { id: 'ahmet-9',   num: 9,     title: 'E-Mail senaryoları — sistem · Mailgun · Marketing' },
+      { id: 'ahmet-12',  num: 12,    title: 'GDPR · KVKK' },
+      { id: 'ahmet-14',  num: 14,    title: 'QA (CRM)' },
+      { id: 'ahmet-15',  num: 15,    title: 'İade Politikası — taleplere göre' },
+      { id: 'ahmet-23',  num: 23,    title: 'Pop-up dışı click close' },
+      { id: 'ahmet-24',  num: 24,    title: 'Changelog' },
+      { id: 'ahmet-26',  num: 26,    title: 'Github Private' },
+      { id: 'ahmet-27',  num: 27,    title: 'Header Notice' },
+      { id: 'ahmet-29',  num: 29,    title: 'Mini Social — LinkedIn-like' },
+      { id: 'ahmet-32',  num: 32,    title: 'Analitik' },
+      { id: 'ahmet-39',  num: 39,    title: 'GTM · Gerez Backend' },
+      { id: 'ahmet-41',  num: 41,    title: 'SEO Checklist' },
+    ],
+  },
+  {
+    id: 'ali', title: 'Ali', subtitle: '', ...PALETTES[4],
+    cards: [
+      { id: 'ali-2',  num: 2,  title: 'User Doctype' },
+      { id: 'ali-10', num: 10, title: 'Media Optimizasyon' },
+      { id: 'ali-17', num: 17, title: 'RFQ — gereksinim analizi & geliştirme' },
+      { id: 'ali-19', num: 19, title: 'Tenant Doctype' },
+      { id: 'ali-20', num: 20, title: 'Organization Doctype' },
+      { id: 'ali-25', num: 25, title: 'Dashboard' },
+      { id: 'ali-28', num: 28, title: 'Keycloak' },
+      { id: 'ali-34', num: 34, title: 'Escrow' },
+      { id: 'ali-35', num: 35, title: 'Fatura Görüntüleme — manuel upload' },
+      { id: 'ali-37', num: 37, title: 'Rate Limit — Front-end Security' },
+    ],
+  },
+  {
+    id: 'ali-turgut', title: 'Ali Turgut', subtitle: '', ...PALETTES[7],
+    cards: [
+      { id: 'aliT-22', num: 22, title: 'Language Switcher' },
+      { id: 'aliT-31', num: 31, title: 'Impersonate' },
+      { id: 'aliT-38', num: 38, title: 'Sentry · ELK — Facets · Search API' },
+    ],
+  },
+  {
+    id: 'bora', title: 'Bora', subtitle: '', ...PALETTES[5],
+    cards: [
+      { id: 'bora-4',  num: 4,  title: 'Review Product' },
+      { id: 'bora-5',  num: 5,  title: 'Toplu ürün yükleme' },
+      { id: 'bora-6',  num: 6,  title: 'Seller apply · Seller store' },
+      { id: 'bora-7',  num: 7,  title: 'Store Reviews — yorumlar & moderasyon' },
+      { id: 'bora-8',  num: 8,  title: 'Supplier Brands' },
+      { id: 'bora-11', num: 11, title: 'Kategori DocType' },
+      { id: 'bora-13', num: 13, title: 'Mağaza → Ürün Review' },
+      { id: 'bora-16', num: 16, title: 'Toplu Fiyatlandırma' },
+      { id: 'bora-21', num: 21, title: 'CYS — Kategori Yönetim Sistemi' },
+      { id: 'bora-30', num: 30, title: 'Accounting · Order / ID / Cancel' },
+      { id: 'bora-36', num: 36, title: 'Payment — Intent · Method · Refund' },
+      { id: 'bora-44', num: 44, title: 'BOGO' },
+    ],
+  },
+  {
+    id: 'bakilacaklar', title: 'Bakılacaklar', subtitle: 'Backlog', ...PALETTES[8],
+    cards: [
+      { id: 'bak-1',  num: 1,  title: 'Management · User RBAC · Pricing Table' },
+      { id: 'bak-18', num: 18, title: 'Adresses' },
+      { id: 'bak-21', num: 21, title: 'Sanal Kategori Condition' },
+      { id: 'bak-33', num: 33, title: 'Buybox' },
+      { id: 'bak-40', num: 40, title: 'Roll-back senaryosu' },
+      { id: 'bak-42', num: 42, title: 'Cloudflare Enterprise' },
+      { id: 'bak-43', num: 43, title: 'Özel Fiyatlama Condition' },
+      { id: 'bak-45', num: 45, title: 'AI ürün ekleme · Agent' },
+    ],
+  },
+];
+
+const ICON = {
+  x:      '<svg class="kb-icon" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+  pencil: '<svg class="kb-icon" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',
+  trash:  '<svg class="kb-icon" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  plus:   '<svg class="kb-icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
+  plusLg: '<svg class="kb-icon kb-icon-lg" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
+  check:  '<svg class="kb-icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>',
+};
+
+/* === State === */
+let state = {
+  board: load() || JSON.parse(JSON.stringify(INITIAL_BOARD)),
+  search: '',
+  drag: null,
+  dropAt: null,
+};
+let toastTimer = null;
+let dragData = {};
+
+/* === Storage === */
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    return parsed;
+  } catch { return null; }
+}
+function save() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.board)); } catch {}
+}
+
+/* === Helpers === */
+function findCol(id) { return state.board.find(c => c.id === id); }
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function filterCards(cards) {
+  if (!state.search.trim()) return cards;
+  const q = state.search.toLowerCase();
+  return cards.filter(c => c.title.toLowerCase().includes(q) || String(c.num).toLowerCase().includes(q));
+}
+function colored(svg, color) {
+  return svg.replace('class="kb-icon"', 'class="kb-icon" style="color:' + color + '"')
+            .replace('class="kb-icon kb-icon-lg"', 'class="kb-icon kb-icon-lg" style="color:' + color + '"');
+}
+
+/* === Mutations === */
+function moveCard(fromColId, cardId, toColId, toIdx) {
+  const fromCol = findCol(fromColId);
+  if (!fromCol) return;
+  const card = fromCol.cards.find(c => c.id === cardId);
+  if (!card) return;
+  if (fromColId === toColId) {
+    const fromIdx = fromCol.cards.findIndex(c => c.id === cardId);
+    fromCol.cards.splice(fromIdx, 1);
+    const adj = fromIdx < toIdx ? toIdx - 1 : toIdx;
+    fromCol.cards.splice(adj, 0, card);
+  } else {
+    fromCol.cards = fromCol.cards.filter(c => c.id !== cardId);
+    const toCol = findCol(toColId);
+    toCol.cards.splice(toIdx, 0, card);
+  }
+  render(); save();
+}
+
+function addCard(colId, title) {
+  const col = findCol(colId);
+  if (!col) return;
+  col.cards.push({ id: 'c-' + Date.now(), num: '·', title });
+  render(); save();
+}
+
+function deleteCard(colId, cardId) {
+  const col = findCol(colId);
+  if (!col) return;
+  col.cards = col.cards.filter(c => c.id !== cardId);
+  render(); save();
+}
+
+function addColumn(title, subtitle, paletteIndex) {
+  const palette = PALETTES[paletteIndex % PALETTES.length];
+  state.board.push({
+    id: 'col-' + Date.now(),
+    title, subtitle: subtitle || '',
+    ...palette,
+    cards: [],
+  });
+  render(); save();
+  setTimeout(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }), 60);
+}
+
+function renameColumn(colId, title, subtitle) {
+  const col = findCol(colId);
+  if (!col) return;
+  col.title = title;
+  col.subtitle = subtitle || '';
+  render(); save();
+}
+
+function deleteColumn(col) {
+  const hasCards = col.cards.length > 0;
+  const message = hasCards
+    ? '"' + col.title + '" sütunu ve içindeki ' + col.cards.length + ' görev silinecek. Bu geri alınamaz.'
+    : '"' + col.title + '" sütunu silinecek.';
+  showConfirm(message, () => {
+    state.board = state.board.filter(c => c.id !== col.id);
+    render(); save();
+    showToast('"' + col.title + '" silindi');
+  }, { danger: true, confirmLabel: 'Sil', title: 'Sütunu sil' });
+}
+
+function reset() {
+  showConfirm('Tüm değişiklikler silinip başlangıç haline dönecek. Devam edelim mi?', () => {
+    state.board = JSON.parse(JSON.stringify(INITIAL_BOARD));
+    render(); save();
+    showToast('İlk haline döndü');
+  }, { danger: true, confirmLabel: 'Sıfırla', title: 'Sıfırlamayı onayla' });
+}
+
+/* === Rendering === */
+function render() {
+  renderMeta();
+  renderBoard();
+}
+
+function renderMeta() {
+  const totalAll = state.board.reduce((a, c) => a + c.cards.length, 0);
+  const totalFiltered = state.board.reduce((a, c) => a + filterCards(c.cards).length, 0);
+  const hasSearch = !!state.search.trim();
+  const parts = [
+    '<span>' + (hasSearch ? totalFiltered + ' / ' + totalAll : totalAll) + ' görev</span>',
+    '<span class="sep">·</span>',
+  ];
+  state.board.forEach(c => {
+    parts.push('<span style="color:' + c.ink + '">' + escapeHtml(c.title.toLowerCase()) +
+               ' <span class="kb-meta-count">' + filterCards(c.cards).length + '</span></span>');
+  });
+  parts.push('<span class="kb-help">kart sürükle · başlığa tıkla → adlandır · uzun-bas mobilde</span>');
+  document.getElementById('kb-meta-row').innerHTML = parts.join('');
+}
+
+function renderBoard() {
+  const host = document.getElementById('kb-board');
+  const parts = [];
+  state.board.forEach(col => parts.push(renderColumn(col)));
+  parts.push(renderAddPanel());
+  host.innerHTML = parts.join('');
+  attachBoardListeners();
+}
+
+function renderColumn(col) {
+  const visible = filterCards(col.cards);
+  const showDropAt = i => state.dropAt && state.dropAt.columnId === col.id && state.dropAt.index === i;
+  const draggedId = state.drag && state.drag.card && state.drag.card.id;
+
+  let cardsHTML = '';
+  if (showDropAt(0)) cardsHTML += dropLine(col);
+  visible.forEach((card, i) => {
+    cardsHTML += renderCard(card, col, draggedId === card.id);
+    if (showDropAt(i + 1)) cardsHTML += dropLine(col);
+  });
+  if (visible.length === 0 && !state.drag) {
+    cardsHTML = '<div class="kb-empty" style="border:1px dashed ' + col.soft + ';color:' + col.ink + '">boş — bir kart bırak</div>';
+  }
+
+  return ''
+    + '<section class="kb-col" data-col-id="' + col.id + '" style="background:' + col.paper + ';border:1px solid ' + col.soft + '">'
+    +   '<div class="kb-col-tape" style="background:' + col.tape + '"></div>'
+    +   '<div class="kb-col-head">'
+    +     '<div class="kb-col-head-row">'
+    +       '<button class="kb-col-title-btn" data-action="rename-col" data-col-id="' + col.id + '" title="Yeniden adlandır">'
+    +         '<span class="kb-col-title" style="color:' + col.ink + '">' + escapeHtml(col.title) + '</span>'
+    +         (col.subtitle ? '<span class="kb-col-sub">' + escapeHtml(col.subtitle) + '</span>' : '')
+    +       '</button>'
+    +       '<div class="kb-col-actions">'
+    +         '<span class="kb-col-count" style="color:' + col.ink + '">'
+    +           (state.search.trim() ? visible.length + '/' + col.cards.length : col.cards.length)
+    +         '</span>'
+    +         '<button class="kb-icon-btn" data-action="rename-col" data-col-id="' + col.id + '" title="Yeniden adlandır">' + colored(ICON.pencil, col.ink) + '</button>'
+    +         '<button class="kb-icon-btn" data-action="delete-col" data-col-id="' + col.id + '" title="Sütunu sil">' + colored(ICON.trash, col.ink) + '</button>'
+    +       '</div>'
+    +     '</div>'
+    +     '<div class="kb-col-divider" style="background:' + col.ink + '"></div>'
+    +   '</div>'
+    +   '<div class="kb-cards" data-column-id="' + col.id + '">' + cardsHTML + '</div>'
+    +   '<button class="kb-add-card" data-action="add-card" data-col-id="' + col.id + '" style="color:' + col.ink + ';border:1px dashed ' + col.soft + '">'
+    +     colored(ICON.plus, col.ink) + ' görev ekle'
+    +   '</button>'
+    + '</section>';
+}
+
+function renderCard(card, col, isDragging) {
+  return ''
+    + '<div class="kb-card' + (isDragging ? ' dragging' : '') + '" data-card-id="' + card.id + '" data-card-column="' + col.id + '" style="border:1px solid ' + col.soft + '">'
+    +   '<span class="kb-card-num" style="color:' + col.ink + '">' + escapeHtml(String(card.num).padStart(2, '0')) + '</span>'
+    +   '<span class="kb-card-title">' + escapeHtml(card.title) + '</span>'
+    +   '<button class="kb-card-delete" data-action="delete-card" data-col-id="' + col.id + '" data-card-id="' + card.id + '" aria-label="Sil">' + ICON.x + '</button>'
+    + '</div>';
+}
+
+function dropLine(col) {
+  return '<div class="kb-drop-line" style="background:' + col.ink + ';box-shadow:0 0 8px ' + col.ink + '66"></div>';
+}
+
+function renderAddPanel() {
+  const palette = PALETTES[state.board.length % PALETTES.length];
+  return ''
+    + '<button class="kb-add-col" data-action="add-col-open" style="border:1.5px dashed ' + palette.soft + ';color:' + palette.ink + '">'
+    +   '<div class="kb-add-col-icon" style="background:' + palette.soft + '">' + colored(ICON.plusLg, palette.ink) + '</div>'
+    +   '<span style="font-family:\'Instrument Serif\',serif;font-style:italic;font-size:20px;color:' + palette.ink + '">yeni sütun</span>'
+    +   '<span style="margin-top:4px;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:500;color:' + palette.ink + ';opacity:0.55">ekle</span>'
+    + '</button>';
+}
+
+/* === Event handlers === */
+function attachBoardListeners() {
+  const host = document.getElementById('kb-board');
+  // pointer down on cards = start drag candidate
+  host.querySelectorAll('.kb-card:not(.dragging)').forEach(el => {
+    el.addEventListener('pointerdown', handleCardPointerDown);
+  });
+  // action buttons (delegated)
+  host.querySelectorAll('[data-action]').forEach(el => {
+    el.addEventListener('click', handleAction);
+    el.addEventListener('pointerdown', e => e.stopPropagation());
+  });
+}
+
+function handleAction(e) {
+  e.stopPropagation();
+  const action = e.currentTarget.dataset.action;
+  const colId = e.currentTarget.dataset.colId;
+  const cardId = e.currentTarget.dataset.cardId;
+
+  switch (action) {
+    case 'delete-card': deleteCard(colId, cardId); break;
+    case 'add-card': openAddCardForm(colId); break;
+    case 'rename-col': openRenameColumn(colId); break;
+    case 'delete-col': deleteColumn(findCol(colId)); break;
+    case 'add-col-open': openAddColumnForm(); break;
+  }
+}
+
+/* === Inline forms === */
+function openAddCardForm(colId) {
+  const col = findCol(colId);
+  if (!col) return;
+  const cardsEl = document.querySelector('[data-column-id="' + colId + '"]');
+  if (!cardsEl) return;
+
+  // remove empty placeholder if present
+  const empty = cardsEl.querySelector('.kb-empty');
+  if (empty) empty.remove();
+
+  const form = document.createElement('div');
+  form.className = 'kb-inline-form';
+  form.style.border = '1.5px solid ' + col.ink;
+  form.innerHTML = '<input type="text" placeholder="Yeni görev başlığı…" style="font-size:13.5px;font-weight:500"><div class="kb-inline-hint">↵ kaydet · Esc iptal</div>';
+  cardsEl.appendChild(form);
+
+  const input = form.querySelector('input');
+  input.focus();
+
+  let submitted = false;
+  const submit = () => {
+    if (submitted) return;
+    submitted = true;
+    const t = input.value.trim();
+    if (t) addCard(colId, t); else render();
+  };
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); submit(); }
+    if (e.key === 'Escape') { submitted = true; render(); }
+  });
+  input.addEventListener('blur', () => setTimeout(submit, 120));
+}
+
+function openRenameColumn(colId) {
+  const col = findCol(colId);
+  if (!col) return;
+  const colEl = document.querySelector('[data-col-id="' + colId + '"]');
+  if (!colEl) return;
+  const headEl = colEl.querySelector('.kb-col-head');
+  if (!headEl) return;
+
+  const form = document.createElement('div');
+  form.className = 'kb-inline-form';
+  form.style.border = '1.5px solid ' + col.ink;
+  form.innerHTML = ''
+    + '<input class="kb-rename-title" type="text" value="' + escapeHtml(col.title) + '" placeholder="Başlık" style="font-family:\'Instrument Serif\',serif;font-style:italic;font-size:24px;color:' + col.ink + ';letter-spacing:-0.02em">'
+    + '<input class="kb-rename-sub" type="text" value="' + escapeHtml(col.subtitle || '') + '" placeholder="Alt başlık (opsiyonel)" style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:500;color:#7C6F58;margin-top:4px">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid #f0e7d8">'
+    +   '<span class="kb-inline-hint">↵ kaydet · Esc iptal</span>'
+    +   '<button class="kb-save-btn" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;background:' + col.ink + ';color:white;border:none;font-size:11px;font-weight:600">' + colored(ICON.check, 'white') + ' Kaydet</button>'
+    + '</div>';
+
+  headEl.innerHTML = '';
+  headEl.appendChild(form);
+
+  const titleInput = form.querySelector('.kb-rename-title');
+  const subInput = form.querySelector('.kb-rename-sub');
+  const saveBtn = form.querySelector('.kb-save-btn');
+  titleInput.focus();
+  titleInput.select();
+
+  const submit = () => {
+    const t = titleInput.value.trim() || col.title;
+    const s = subInput.value.trim();
+    renameColumn(colId, t, s);
+  };
+  [titleInput, subInput].forEach(inp => {
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+      if (e.key === 'Escape') render();
+    });
+  });
+  saveBtn.addEventListener('click', submit);
+}
+
+function openAddColumnForm() {
+  const palette = PALETTES[state.board.length % PALETTES.length];
+  const host = document.getElementById('kb-board');
+  const ghost = host.querySelector('.kb-add-col');
+  if (!ghost) return;
+
+  const form = document.createElement('section');
+  form.className = 'kb-col';
+  form.style.background = palette.paper;
+  form.style.border = '1.5px solid ' + palette.ink;
+  form.innerHTML = ''
+    + '<div class="kb-col-tape" style="background:' + palette.tape + '"></div>'
+    + '<div style="padding:32px 20px 16px">'
+    +   '<div class="kb-inline-form" style="border:1px solid ' + palette.soft + '">'
+    +     '<input class="kb-newcol-title" type="text" placeholder="Sütun başlığı" style="font-family:\'Instrument Serif\',serif;font-style:italic;font-size:24px;color:' + palette.ink + ';letter-spacing:-0.02em">'
+    +     '<input class="kb-newcol-sub" type="text" placeholder="Alt başlık (opsiyonel)" style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:500;color:#7C6F58;margin-top:4px">'
+    +   '</div>'
+    +   '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">'
+    +     '<button class="kb-newcol-cancel" style="background:transparent;border:none;font-size:12px;font-weight:500;color:#7C6F58">iptal</button>'
+    +     '<button class="kb-newcol-save" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;background:' + palette.ink + ';color:white;border:none;font-size:12px;font-weight:600">' + colored(ICON.check, 'white') + ' Sütun oluştur</button>'
+    +   '</div>'
+    + '</div>';
+
+  ghost.replaceWith(form);
+
+  const titleInput = form.querySelector('.kb-newcol-title');
+  const subInput = form.querySelector('.kb-newcol-sub');
+  titleInput.focus();
+
+  const submit = () => {
+    const t = titleInput.value.trim();
+    if (!t) return;
+    addColumn(t, subInput.value.trim(), state.board.length);
+  };
+  [titleInput, subInput].forEach(inp => {
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+      if (e.key === 'Escape') render();
+    });
+  });
+  form.querySelector('.kb-newcol-save').addEventListener('click', submit);
+  form.querySelector('.kb-newcol-cancel').addEventListener('click', render);
+}
+
+/* === Drag & Drop === */
+function handleCardPointerDown(e) {
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  const cardEl = e.currentTarget;
+  const cardId = cardEl.dataset.cardId;
+  const colId = cardEl.dataset.cardColumn;
+  const col = findCol(colId);
+  const card = col && col.cards.find(c => c.id === cardId);
+  if (!card) return;
+  e.preventDefault();
+
+  const rect = cardEl.getBoundingClientRect();
+  dragData = {
+    card, fromColId: colId,
+    dx: e.clientX - rect.left,
+    dy: e.clientY - rect.top,
+    width: rect.width,
+    startX: e.clientX,
+    startY: e.clientY,
+    pointerType: e.pointerType,
+    started: false,
+    pressTimer: null,
+  };
+  if (e.pointerType === 'touch') {
+    dragData.pressTimer = setTimeout(() => {
+      if (dragData.card && !dragData.started) startDrag(dragData.startX, dragData.startY);
+    }, 220);
+  }
+  window.addEventListener('pointermove', onMove, { passive: false });
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
+}
+
+function startDrag(x, y) {
+  dragData.started = true;
+  state.drag = {
+    card: dragData.card,
+    fromColumn: dragData.fromColId,
+    x, y,
+    dx: dragData.dx, dy: dragData.dy,
+    width: dragData.width,
+  };
+  if (navigator.vibrate) navigator.vibrate(25);
+  renderGhost();
+  renderBoard();
+}
+
+function renderGhost() {
+  const host = document.getElementById('kb-ghost-host');
+  if (!state.drag) { host.innerHTML = ''; return; }
+  const col = findCol(state.drag.fromColumn);
+  host.innerHTML = ''
+    + '<div class="kb-ghost" style="left:' + (state.drag.x - state.drag.dx) + 'px;top:' + (state.drag.y - state.drag.dy) + 'px;width:' + state.drag.width + 'px">'
+    +   '<div class="kb-card" style="border:1.5px solid ' + col.ink + '">'
+    +     '<span class="kb-card-num" style="color:' + col.ink + '">' + escapeHtml(String(state.drag.card.num).padStart(2, '0')) + '</span>'
+    +     '<span class="kb-card-title">' + escapeHtml(state.drag.card.title) + '</span>'
+    +   '</div>'
+    + '</div>';
+}
+
+function onMove(e) {
+  if (!dragData.card) return;
+  if (!dragData.started) {
+    const dist = Math.hypot(e.clientX - dragData.startX, e.clientY - dragData.startY);
+    if (dragData.pointerType === 'mouse' || dragData.pointerType === 'pen') {
+      if (dist > 5) startDrag(e.clientX, e.clientY);
+    } else {
+      if (dist > 12) {
+        if (dragData.pressTimer) clearTimeout(dragData.pressTimer);
+        dragData = {};
+        cleanupDragListeners();
+      }
+    }
+    return;
+  }
+  e.preventDefault();
+  state.drag.x = e.clientX;
+  state.drag.y = e.clientY;
+  renderGhost();
+
+  // Auto-scroll page vertically near viewport edges
+  const edge = 90;
+  const vh = window.innerHeight;
+  if (e.clientY < edge) window.scrollBy(0, -Math.min(18, (edge - e.clientY) / 4));
+  else if (e.clientY > vh - edge) window.scrollBy(0, Math.min(18, (e.clientY - (vh - edge)) / 4));
+
+  // Find drop target
+  const els = document.elementsFromPoint(e.clientX, e.clientY);
+  let foundColumn = null;
+  let foundCardEl = null;
+  for (const el of els) {
+    if (!foundCardEl && el && el.dataset && el.dataset.cardId && el.dataset.cardId !== dragData.card.id) foundCardEl = el;
+    if (!foundColumn && el && el.dataset && el.dataset.columnId) foundColumn = el.dataset.columnId;
+    if (foundColumn && foundCardEl) break;
+  }
+  let dropAt = null;
+  if (foundColumn) {
+    const col = findCol(foundColumn);
+    let index;
+    if (foundCardEl && foundCardEl.dataset.cardColumn === foundColumn) {
+      const r = foundCardEl.getBoundingClientRect();
+      const isAfter = e.clientY > r.top + r.height / 2;
+      const idx = col.cards.findIndex(c => c.id === foundCardEl.dataset.cardId);
+      index = isAfter ? idx + 1 : idx;
+    } else {
+      index = col.cards.length;
+    }
+    dropAt = { columnId: foundColumn, index };
+  }
+  const a = state.dropAt;
+  const changed = !a !== !dropAt || (a && dropAt && (a.columnId !== dropAt.columnId || a.index !== dropAt.index));
+  if (changed) {
+    state.dropAt = dropAt;
+    renderBoard();
+  }
+}
+
+function onUp() {
+  if (dragData.pressTimer) clearTimeout(dragData.pressTimer);
+  const wasDragging = dragData.started;
+  const targetDrop = state.dropAt;
+  const fromColId = dragData.fromColId;
+  const cardId = dragData.card && dragData.card.id;
+  dragData = {};
+  cleanupDragListeners();
+  document.getElementById('kb-ghost-host').innerHTML = '';
+  state.drag = null;
+  state.dropAt = null;
+  if (wasDragging && cardId && targetDrop) {
+    moveCard(fromColId, cardId, targetDrop.columnId, targetDrop.index);
+  } else {
+    render();
+  }
+}
+
+function cleanupDragListeners() {
+  window.removeEventListener('pointermove', onMove);
+  window.removeEventListener('pointerup', onUp);
+  window.removeEventListener('pointercancel', onUp);
+}
+
+/* === Toast & Modal === */
+function showToast(message, opts) {
+  opts = opts || {};
+  if (toastTimer) clearTimeout(toastTimer);
+  const host = document.getElementById('kb-toast-host');
+  host.innerHTML = '<div class="kb-toast"><span style="flex:1">' + escapeHtml(message) + '</span><button id="kb-toast-close" aria-label="Kapat">' + ICON.x + '</button></div>';
+  document.getElementById('kb-toast-close').addEventListener('click', () => host.innerHTML = '');
+  toastTimer = setTimeout(() => { host.innerHTML = ''; }, opts.duration || 5000);
+}
+
+function showConfirm(message, onYes, opts) {
+  opts = opts || {};
+  const host = document.getElementById('kb-modal-host');
+  const titleHtml = opts.title ? '<h3 style="color:#2C241A">' + escapeHtml(opts.title) + '</h3>' : '';
+  host.innerHTML = ''
+    + '<div class="kb-modal-overlay" id="kb-modal-overlay">'
+    +   '<div class="kb-modal" id="kb-modal-body">'
+    +     titleHtml
+    +     '<p>' + escapeHtml(message) + '</p>'
+    +     '<div class="kb-modal-actions">'
+    +       '<button class="kb-modal-cancel">' + escapeHtml(opts.cancelLabel || 'Vazgeç') + '</button>'
+    +       '<button class="kb-modal-confirm' + (opts.danger ? ' danger' : '') + '">' + escapeHtml(opts.confirmLabel || 'Onayla') + '</button>'
+    +     '</div>'
+    +   '</div>'
+    + '</div>';
+  const close = () => host.innerHTML = '';
+  host.querySelector('.kb-modal-cancel').addEventListener('click', close);
+  host.querySelector('.kb-modal-confirm').addEventListener('click', () => { close(); onYes(); });
+  host.querySelector('#kb-modal-overlay').addEventListener('click', e => {
+    if (e.target.id === 'kb-modal-overlay') close();
+  });
+  // Esc to close
+  const escHandler = (e) => {
+    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', escHandler); }
+  };
+  document.addEventListener('keydown', escHandler);
+}
+
+/* === Export === */
+function exportJSON() {
+  const totalCards = state.board.reduce((a, c) => a + c.cards.length, 0);
+  const data = {
+    app: 'marketplace-kanban',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    columnCount: state.board.length,
+    cardCount: totalCards,
+    board: state.board,
+  };
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+  a.href = url;
+  a.download = 'kanban-' + stamp + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('JSON yedek indirildi · ' + state.board.length + ' sütun · ' + totalCards + ' görev');
+}
+
+function importBoard() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/json,.json';
+  input.onchange = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      let imported = Array.isArray(parsed) ? parsed : parsed.board;
+      if (!Array.isArray(imported) || imported.length === 0) throw new Error('Dosyada sütun bulunamadı');
+
+      const sanitized = imported.map((c, i) => {
+        if (!c || !c.title) throw new Error('Sütun #' + (i + 1) + ' eksik başlık');
+        const palette = PALETTES[i % PALETTES.length];
+        return {
+          id: c.id || ('col-imp-' + Date.now() + '-' + i),
+          title: String(c.title),
+          subtitle: c.subtitle ? String(c.subtitle) : '',
+          ink: c.ink || palette.ink,
+          soft: c.soft || palette.soft,
+          paper: c.paper || palette.paper,
+          tape: c.tape || palette.tape,
+          cards: Array.isArray(c.cards) ? c.cards.map((card, j) => ({
+            id: (card && card.id) || ('card-imp-' + Date.now() + '-' + i + '-' + j),
+            num: card && card.num != null ? card.num : '·',
+            title: String(card && card.title != null ? card.title : '(başlıksız)'),
+          })) : [],
+        };
+      });
+
+      const seen = new Set();
+      sanitized.forEach(c => {
+        c.cards = c.cards.map(card => {
+          let id = card.id;
+          while (seen.has(id)) id = id + '-dup' + Math.random().toString(36).slice(2, 6);
+          seen.add(id);
+          return Object.assign({}, card, { id });
+        });
+      });
+
+      const hasCurrent = state.board.some(c => c.cards.length > 0);
+      const cardCount = sanitized.reduce((a, c) => a + c.cards.length, 0);
+      const totalAll = state.board.reduce((a, c) => a + c.cards.length, 0);
+      const msg = hasCurrent
+        ? 'Mevcut board (' + totalAll + ' görev) silinip içe aktarılan ' + sanitized.length + ' sütun · ' + cardCount + ' görev ile değiştirilecek.'
+        : sanitized.length + ' sütun · ' + cardCount + ' görev içe aktarılacak.';
+      showConfirm(msg, () => {
+        state.board = sanitized;
+        render(); save();
+        showToast(sanitized.length + ' sütun · ' + cardCount + ' görev içe aktarıldı');
+      }, { confirmLabel: 'İçe aktar', title: 'İçe aktarmayı onayla', danger: hasCurrent });
+    } catch (err) {
+      showToast('Dosya okunamadı: ' + (err && err.message ? err.message : err), { duration: 7000 });
+    }
+  };
+  input.click();
+}
+
+function exportPDF() {
+  const dateStr = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
+  const stamp = new Date().toISOString().slice(0, 10);
+  const totalCards = state.board.reduce((a, c) => a + c.cards.length, 0);
+
+  const colHTML = state.board.map(col => {
+    const cardsHTML = col.cards.map(card =>
+      '<li class="card" style="border-color:' + col.soft + '">'
+      + '<span class="num" style="color:' + col.ink + '">' + escapeHtml(String(card.num).padStart(2, '0')) + '</span>'
+      + '<span class="title">' + escapeHtml(card.title) + '</span>'
+      + '</li>'
+    ).join('');
+    return ''
+      + '<section class="col" style="border-color:' + col.soft + ';background:' + col.paper + '">'
+      +   '<div class="col-tape" style="background:' + col.tape + '"></div>'
+      +   '<header class="col-head">'
+      +     '<div class="col-title">'
+      +       '<h2 style="color:' + col.ink + '">' + escapeHtml(col.title) + '</h2>'
+      +       (col.subtitle ? '<span class="sub">' + escapeHtml(col.subtitle) + '</span>' : '')
+      +     '</div>'
+      +     '<span class="count" style="color:' + col.ink + '">' + col.cards.length + '</span>'
+      +   '</header>'
+      +   '<div class="col-divider" style="background:' + col.ink + '"></div>'
+      +   '<ul class="cards">' + cardsHTML + '</ul>'
+      + '</section>';
+  }).join('');
+
+  const legendHTML = state.board.map(c => ''
+    + '<div style="color:' + c.ink + '">'
+    +   '<strong>' + escapeHtml(c.title) + '</strong>'
+    +   '<span class="legend-count">' + c.cards.length + '</span>'
+    + '</div>'
+  ).join('');
+
+  const html = '<!doctype html>'
+    + '<html lang="tr"><head><meta charset="utf-8">'
+    + '<title>Marketplace Kanban — ' + stamp + '</title>'
+    + '<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">'
+    + '<style>'
+    + '@page { size: A4 landscape; margin: 12mm; }'
+    + '*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0;'
+    + '  -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }'
+    + 'body { font-family: "Plus Jakarta Sans", system-ui, sans-serif; background: #F5EFE5; color: #2C241A; padding: 18mm; min-height: 100vh; }'
+    + '@media print { body { padding: 0; background: white; } }'
+    + '.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 18mm; border-bottom: 1px solid #d8c9b0; padding-bottom: 6mm; margin-bottom: 6mm; }'
+    + '.top h1 { font-family: "Instrument Serif", serif; font-style: italic; font-size: 28pt; letter-spacing: -0.02em; line-height: 1; }'
+    + '.top .meta { font-family: "JetBrains Mono", monospace; font-size: 9pt; color: #7C6F58; margin-top: 3mm; letter-spacing: 0.04em; }'
+    + '.top .legend { font-size: 9pt; text-align: right; line-height: 1.7; }'
+    + '.top .legend strong { font-weight: 600; }'
+    + '.top .legend .legend-count { opacity: 0.6; margin-left: 6px; font-family: "JetBrains Mono", monospace; }'
+    + '.board { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6mm 8mm; align-items: start; }'
+    + '.col { border-radius: 10px; border: 1px solid; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }'
+    + '.col-tape { height: 5mm; width: 100%; }'
+    + '.col-head { padding: 4mm 5mm 3mm; display: flex; justify-content: space-between; align-items: baseline; }'
+    + '.col-title { display: flex; align-items: baseline; gap: 8px; }'
+    + '.col-title h2 { font-family: "Instrument Serif", serif; font-style: italic; font-size: 17pt; letter-spacing: -0.02em; line-height: 1; }'
+    + '.col-title .sub { font-size: 7.5pt; letter-spacing: 0.1em; text-transform: uppercase; color: #7C6F58; font-weight: 500; }'
+    + '.col-head .count { font-family: "JetBrains Mono", monospace; font-size: 9pt; opacity: 0.7; }'
+    + '.col-divider { height: 1px; margin: 0 5mm 3mm; opacity: 0.18; }'
+    + '.cards { padding: 0 3mm 4mm; display: flex; flex-direction: column; gap: 2mm; list-style: none; }'
+    + '.card { background: white; border-radius: 6px; padding: 2.5mm 3.5mm; border: 1px solid; break-inside: avoid; page-break-inside: avoid; display: flex; gap: 9px; align-items: flex-start; }'
+    + '.card .num { font-family: "JetBrains Mono", monospace; font-size: 8pt; font-weight: 500; letter-spacing: -0.02em; flex-shrink: 0; min-width: 18px; line-height: 1.45; padding-top: 0.5mm; }'
+    + '.card .title { font-size: 10pt; font-weight: 500; line-height: 1.35; letter-spacing: -0.01em; }'
+    + '.toolbar { position: fixed; top: 14mm; right: 14mm; display: flex; gap: 8px; z-index: 100; }'
+    + '.toolbar button { background: #2C241A; color: #F5EFE5; border: none; padding: 9px 16px; border-radius: 8px; font-family: "Plus Jakarta Sans", sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }'
+    + '.toolbar button.secondary { background: white; color: #2C241A; border: 1px solid #d8c9b0; font-weight: 500; }'
+    + '@media print { .toolbar { display: none !important; } }'
+    + '</style></head><body>'
+    + '<div class="toolbar">'
+    +   '<button class="secondary" onclick="window.close()">Kapat</button>'
+    +   '<button onclick="window.print()">PDF olarak kaydet</button>'
+    + '</div>'
+    + '<div class="top">'
+    +   '<div>'
+    +     '<h1>Marketplace Roadmap</h1>'
+    +     '<div class="meta">' + state.board.length + ' sütun · ' + totalCards + ' görev · ' + escapeHtml(dateStr) + '</div>'
+    +   '</div>'
+    +   '<div class="legend">' + legendHTML + '</div>'
+    + '</div>'
+    + '<main class="board">' + colHTML + '</main>'
+    + '<scr' + 'ipt>'
+    + '  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function(){ setTimeout(function(){ window.print(); }, 250); });'
+    + '  else window.addEventListener("load", function(){ setTimeout(function(){ window.print(); }, 500); });'
+    + '</scr' + 'ipt>'
+    + '</body></html>';
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'marketplace-kanban-' + stamp + '.html';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  showToast('HTML indirildi · aç → Cmd/Ctrl+P → "PDF olarak kaydet"', { duration: 8000 });
+}
+
+/* === Init === */
+document.getElementById('kb-search-input').addEventListener('input', e => {
+  state.search = e.target.value;
+  render();
+});
+document.getElementById('kb-pdf').addEventListener('click', exportPDF);
+document.getElementById('kb-json').addEventListener('click', exportJSON);
+document.getElementById('kb-import').addEventListener('click', importBoard);
+document.getElementById('kb-reset').addEventListener('click', reset);
+
+render();
+</script>
+</body>
+</html>
